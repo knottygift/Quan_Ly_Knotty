@@ -825,7 +825,6 @@
         function initAdminSystem() {
             loadData(currentTab);
             checkBackgroundUpdates();
-            // FIX: Nâng lên 10s để tránh sập API (Google limit)
             setInterval(checkBackgroundUpdates, 10000);
         }
 
@@ -894,7 +893,6 @@
                 }
             }).then((result) => {
                 if (result.value && result.value.result === 'success') {
-                    // FIX: Lưu SESSION TOKEN bảo mật thay vì lưu mật khẩu thô
                     sessionStorage.setItem('knotty_logged_in', 'true');
                     sessionStorage.setItem('knotty_admin_token', result.value.sessionToken);
                     sessionStorage.setItem('knotty_admin_timestamp', result.value.sessionTimestamp);
@@ -956,7 +954,17 @@
                         tabName === 'DanhSachQuaTang' ? "getProducts" :
                             tabName === 'VoucherThongBao' ? "getVoucherThongBao" : "getProducts";
 
-            fetch(`${SCRIPT_URL}?action=${actionParam}&clientId=${getClientId()}`).then(res => res.json()).then(data => {
+            // FIXED: Bổ sung Token vào GET Request để chống rò rỉ dữ liệu qua cache/direct access
+            const token = sessionStorage.getItem('knotty_admin_token') || '';
+
+            fetch(`${SCRIPT_URL}?action=${actionParam}&clientId=${getClientId()}&token=${token}`).then(res => res.json()).then(data => {
+
+                // Fixed logic in case error occurs
+                if (data.result === 'error') {
+                    contentArea.innerHTML = `<div class="loading-status" style="color:var(--danger);">${data.error || 'Phiên làm việc không hợp lệ'}</div>`;
+                    return;
+                }
+
                 if (!data || data.length === 0) {
                     contentArea.innerHTML = `<div class="loading-status">Chưa ghi nhận dòng dữ liệu nào.</div>`;
                     return;
@@ -1071,7 +1079,7 @@
                     action: 'updateStatus',
                     sheetName: tabLabelMap[tabName],
                     rowId: rowId,
-                    token: sessionStorage.getItem('knotty_admin_token'), // Gửi token
+                    token: sessionStorage.getItem('knotty_admin_token'),
                     tokenTimestamp: sessionStorage.getItem('knotty_admin_timestamp'),
                     clientId: getClientId()
                 })
@@ -1101,7 +1109,7 @@
                             action: 'deleteRow',
                             sheetName: tabLabelMap[tabName],
                             rowId: rowId,
-                            token: sessionStorage.getItem('knotty_admin_token'), // Gửi token
+                            token: sessionStorage.getItem('knotty_admin_token'),
                             tokenTimestamp: sessionStorage.getItem('knotty_admin_timestamp'),
                             clientId: getClientId()
                         })
@@ -1195,7 +1203,7 @@
                 tag: document.getElementById('p_tag').value,
                 type: document.getElementById('p_buttonAction').value,
                 subCategory: document.getElementById('p_type').value + '_' + document.getElementById('p_subCategory').value,
-                token: sessionStorage.getItem('knotty_admin_token'), // Gửi token
+                token: sessionStorage.getItem('knotty_admin_token'),
                 tokenTimestamp: sessionStorage.getItem('knotty_admin_timestamp'),
                 clientId: getClientId()
             };
@@ -1293,7 +1301,7 @@
                 action,
                 vtType: type,
                 rowId: editingRowData ? editingRowData.ID : null,
-                token: sessionStorage.getItem('knotty_admin_token'), // Gửi token
+                token: sessionStorage.getItem('knotty_admin_token'),
                 tokenTimestamp: sessionStorage.getItem('knotty_admin_timestamp'),
                 clientId: getClientId()
             };
@@ -1369,7 +1377,7 @@
         }
 
         // ===================================
-        // REAL-TIME NOTIFICATION SYSTEM (OPTIMIZED)
+        // REAL-TIME NOTIFICATION SYSTEM
         // ===================================
 
         window.knownUnprocessedIds = new Set();
@@ -1428,10 +1436,18 @@
             const dot = document.getElementById('status-dot');
             const txt = document.getElementById('status-text');
 
-            // FIX: Sử dụng 1 API gom chung để tránh lỗi Spam Too Many Request
-            fetch(`${SCRIPT_URL}?action=getDashboardData&clientId=${getClientId()}`)
+            // FIXED: Bổ sung Token vào GET Request
+            const token = sessionStorage.getItem('knotty_admin_token') || '';
+
+            fetch(`${SCRIPT_URL}?action=getDashboardData&clientId=${getClientId()}&token=${token}`)
                 .then(r => r.json())
                 .then(data => {
+                    if (data.result === 'error') {
+                        if (dot) dot.classList.add('error');
+                        if (txt) txt.innerText = "Phiên làm việc lỗi!";
+                        return;
+                    }
+
                     if (dot) dot.classList.remove('error');
                     if (txt) txt.innerText = "Đã đồng bộ với máy chủ";
 
