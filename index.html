@@ -587,6 +587,7 @@
             <button class="tab-btn" onclick="switchTab('QuaTangNoiBat', this)">Quà Tặng Nổi Bật (Trang Chủ)</button>
             <button class="tab-btn" onclick="switchTab('DanhSachQuaTang', this)">Danh Sách Toàn Bộ Quà Tặng</button>
             <button class="tab-btn" onclick="switchTab('VoucherThongBao', this)">Voucher & Thông báo</button>
+            <button class="tab-btn" onclick="switchTab('DanhGia', this)">Đánh Giá</button>
         </div>
 
         <div id="action-bar" class="action-bar">
@@ -779,7 +780,8 @@
             'DonHang': 'Đơn Hàng',
             'QuaTangNoiBat': 'Quà Tặng Nổi Bật',
             'DanhSachQuaTang': 'Danh Sách Quà Tặng',
-            'VoucherThongBao': 'VoucherThongBao'
+            'VoucherThongBao': 'VoucherThongBao',
+            'DanhGia': 'Đánh giá'
         };
 
         const subCategoryMap = {
@@ -952,7 +954,8 @@
                 tabName === 'DonHang' ? "getOrders" :
                     tabName === 'QuaTangNoiBat' ? "getFeaturedGifts" :
                         tabName === 'DanhSachQuaTang' ? "getProducts" :
-                            tabName === 'VoucherThongBao' ? "getVoucherThongBao" : "getProducts";
+                            tabName === 'DanhGia' ? "getReviews" :
+                                tabName === 'VoucherThongBao' ? "getVoucherThongBao" : "getProducts";
 
             // FIXED: Bổ sung Token vào GET Request để chống rò rỉ dữ liệu qua cache/direct access
             const token = sessionStorage.getItem('knotty_admin_token') || '';
@@ -979,6 +982,7 @@
 
                 if (tabName === 'LienHe') html += `<th>STT</th><th>Thời gian gửi</th><th>Họ và tên</th><th>Số điện thoại</th><th>Địa chỉ Email</th><th>Trạng thái</th><th>Thao tác</th>`;
                 else if (tabName === 'DonHang') html += `<th>STT</th><th>Thời gian</th><th>Mã hóa đơn</th><th>Khách hàng</th><th>Địa chỉ giao nhận</th><th>Chi tiết sản phẩm</th><th>Tổng tiền</th><th>Ghi chú</th><th>Trạng thái</th><th>Thao tác</th>`;
+                else if (tabName === 'DanhGia') html += `<th>STT</th><th>Thời gian</th><th>Tên hiển thị</th><th>Số sao</th><th>Nội dung đánh giá</th><th>ID Khách</th><th>Trạng thái</th><th>Thao tác</th>`;
                 else html += `<th>STT</th><th>Ảnh minh họa</th><th>Tên sản phẩm</th><th>Giá hiển thị</th><th>Giá số (tính toán)</th><th>Nhãn (Tag)</th><th>Tương tác</th><th>Danh mục chính</th><th>Chi tiết</th><th>Thao tác</th>`;
 
                 html += `</tr></thead><tbody>`;
@@ -1007,8 +1011,16 @@
 
                     if (tabName === 'LienHe' || tabName === 'DonHang') {
                         let statusText = row['Trạng thái'] || 'Chưa xử lý';
-                        isUnprocessed = (statusText !== 'Đã xử lý');
-                        trClass = isUnprocessed ? 'class="row-new-highlight"' : '';
+                        let isCanceled = (statusText === 'Đã hủy');
+                        isUnprocessed = (statusText === 'Chưa xử lý');
+
+                        if (isCanceled) {
+                            trClass = 'style="background-color: #fff5f5 !important; border-left: 4px solid #dc3545 !important;"';
+                        } else if (isUnprocessed) {
+                            trClass = 'class="row-new-highlight"';
+                        } else {
+                            trClass = '';
+                        }
                     }
 
                     html += `<tr ${trClass}><td><strong>${index + 1}</strong></td>`;
@@ -1028,7 +1040,24 @@
                         html += `<td style="max-width:260px; font-size:0.88rem; line-height:1.4;">${escapeHtml(row['Sản phẩm'] || '')}</td>`;
                         html += `<td style="color:#e53e3e; font-weight:700;">${escapeHtml(row['Tổng tiền'] || '')}</td>`;
                         html += `<td><small style="color:#718096">${escapeHtml(row['Ghi chú'] || '')}</small></td>`;
-                        html += `<td>${isUnprocessed ? '<span class="badge badge-phone">Chưa xử lý</span>' : '<span class="badge badge-tag">Đã xử lý</span>'}</td>`;
+                        let statusBadge = '';
+                        if (row['Trạng thái'] === 'Đã hủy') {
+                            statusBadge = '<span class="badge badge-phone" style="background:#fdf2f8;color:#be185d;border:1px solid #fbcfe8;">Khách Hủy</span>';
+                        } else if (isUnprocessed) {
+                            statusBadge = '<span class="badge badge-phone">Chưa xử lý</span>';
+                        } else {
+                            statusBadge = '<span class="badge badge-tag">Đã xử lý</span>';
+                        }
+                        html += `<td>${statusBadge}</td>`;
+                    }
+                    else if (tabName === 'DanhGia') {
+                        let starsHtml = '<span style="color:#f1c40f;">' + '★'.repeat(row['Số sao'] || 5) + '</span>';
+                        html += `<td>${formatTime(row['Thời gian'])}</td>`;
+                        html += `<td><strong>${escapeHtml(row['Tên hiển thị'] || '')}</strong></td>`;
+                        html += `<td>${starsHtml}</td>`;
+                        html += `<td style="max-width:300px; white-space:normal;">${escapeHtml(row['Nội dung đánh giá'] || '')}</td>`;
+                        html += `<td><small style="color:#999">${escapeHtml(row['ID Khách hàng'] || '')}</small></td>`;
+                        html += `<td>${row['Trạng thái'] === 'Ẩn' ? '<span class="badge badge-phone">Đang ẩn</span>' : '<span class="badge badge-tag">Hiển thị</span>'}</td>`;
                     }
                     else {
                         html += `<td><img src="${row['img'] || ''}" class="prod-img-preview" onerror="this.src='https://via.placeholder.com/50x40?text=No+Img'" alt="${escapeHtml(row['title'] || '')}"></td>`;
@@ -1477,7 +1506,8 @@
                     });
 
                     orders.forEach(o => {
-                        if ((o['Trạng thái'] || 'Chưa xử lý') !== 'Đã xử lý') {
+                        // Chỉ thông báo chuông nếu đơn hàng đang ở trạng thái 'Chưa xử lý' (loại bỏ Đã hủy)
+                        if ((o['Trạng thái'] || 'Chưa xử lý') === 'Chưa xử lý') {
                             let id = o['ID'] || o.rowIndex;
                             currentUnprocessed.push({
                                 id: id,
